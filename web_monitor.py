@@ -1,11 +1,12 @@
-import os
+mport os
 import requests
 from bs4 import BeautifulSoup
 import smtplib
 from email.mime.text import MIMEText
 import time
 import logging
-from datetime import datetime, time as dt_time
+from datetime import datetime
+from pytz import timezone
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
@@ -22,10 +23,13 @@ SENDER_EMAIL = os.environ.get('SENDER_EMAIL')
 SENDER_PASSWORD = os.environ.get('SENDER_PASSWORD')
 RECIPIENT_EMAIL = os.environ.get('RECIPIENT_EMAIL')
 
+# Timezone configuration
+FRANCE_TZ = timezone('Europe/Paris')
+
 # New variables for daily summary
-SUMMARY_TIME = dt_time(21, 0)  # 9:00 PM
+SUMMARY_TIME = FRANCE_TZ.localize(datetime.now().replace(hour=21, minute=5, second=0, microsecond=0)).time()
 found_today = False
-last_summary_date = datetime.now().date()
+last_summary_date = FRANCE_TZ.localize(datetime.now()).date()
 
 def check_webpage():
     global found_today
@@ -66,8 +70,9 @@ def send_email_notification(subject, body=None):
 
 def check_and_send_daily_summary():
     global found_today, last_summary_date
-    current_date = datetime.now().date()
-    current_time = datetime.now().time()
+    current_datetime = FRANCE_TZ.localize(datetime.now())
+    current_date = current_datetime.date()
+    current_time = current_datetime.time()
     
     if current_date > last_summary_date and current_time >= SUMMARY_TIME:
         if not found_today:
