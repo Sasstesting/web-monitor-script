@@ -5,6 +5,7 @@ import smtplib
 from email.mime.text import MIMEText
 import time
 import logging
+from datetime import datetime, time as dt_time
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
@@ -21,7 +22,13 @@ SENDER_EMAIL = os.environ.get('SENDER_EMAIL')
 SENDER_PASSWORD = os.environ.get('SENDER_PASSWORD')
 RECIPIENT_EMAIL = os.environ.get('RECIPIENT_EMAIL')
 
+# New variables for daily summary
+SUMMARY_TIME = dt_time(21, 0)  # 9:00 PM
+found_today = False
+last_summary_date = datetime.now().date()
+
 def check_webpage():
+    global found_today
     try:
         response = requests.get(URL)
         soup = BeautifulSoup(response.text, 'html.parser')
@@ -29,7 +36,8 @@ def check_webpage():
         
         if target_element:
             logging.info(f"Element with ID '{ELEMENT_ID}' found!")
-            send_email_notification()
+            send_email_notification(f"Element '{ELEMENT_ID}' Found on {URL}")
+            found_today = True
             return True
         else:
             logging.info(f"Element with ID '{ELEMENT_ID}' not found. Will check again in {CHECK_INTERVAL} seconds.")
@@ -38,9 +46,9 @@ def check_webpage():
     
     return False
 
-def send_email_notification():
-    subject = f"Element '{ELEMENT_ID}' Found on {URL}"
-    body = f"The element with ID '{ELEMENT_ID}' has been found on {URL}."
+def send_email_notification(subject, body=None):
+    if body is None:
+        body = f"The element with ID '{ELEMENT_ID}' has been found on {URL}."
     
     msg = MIMEText(body)
     msg['Subject'] = subject
@@ -56,11 +64,26 @@ def send_email_notification():
     except Exception as e:
         logging.error(f"Error sending email: {str(e)}")
 
+def check_and_send_daily_summary():
+    global found_today, last_summary_date
+    current_date = datetime.now().date()
+    current_time = datetime.now().time()
+    
+    if current_date > last_summary_date and current_time >= SUMMARY_TIME:
+        if not found_today:
+            subject = f"Daily Summary: Element '{ELEMENT_ID}' Not Found"
+            body = f"The element with ID '{ELEMENT_ID}' was not found on {URL} today ({current_date})."
+            send_email_notification(subject, body)
+        
+        found_today = False
+        last_summary_date = current_date
+
 def main():
+    global found_today
     logging.info("Starting webpage monitor script...")
     while True:
-        if check_webpage():
-            logging.info("Target element found. Script will continue to monitor.")
+        check_webpage()
+        check_and_send_daily_summary()
         time.sleep(CHECK_INTERVAL)
 
 if __name__ == "__main__":
