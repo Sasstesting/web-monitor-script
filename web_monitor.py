@@ -21,7 +21,7 @@ MAKE_WEBHOOK_URL = os.environ.get('MAKE_WEBHOOK_URL')
 FRANCE_TZ = timezone('Europe/Paris')
 
 # New variables for daily summary
-SUMMARY_TIME = FRANCE_TZ.localize(datetime.now().replace(hour=21, minute=0, second=0, microsecond=0)).time()
+SUMMARY_TIME = FRANCE_TZ.localize(datetime.now().replace(hour=21, minute=45, second=0, microsecond=0)).time()
 found_today = False
 last_summary_date = FRANCE_TZ.localize(datetime.now()).date()
 
