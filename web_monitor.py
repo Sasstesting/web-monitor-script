@@ -1,9 +1,8 @@
 import os
 import requests
 from bs4 import BeautifulSoup
-import schedule
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 import sys
 
@@ -20,6 +19,7 @@ logger = logging.getLogger(__name__)
 # Constants from environment variables
 URL = os.environ.get('PARKING_URL')
 WEBHOOK_URL = os.environ.get('WEBHOOK_URL')
+CHECK_INTERVAL = int(os.environ.get('CHECK_INTERVAL', 3600))  # Default to 3600 seconds if not set
 
 def check_availability():
     try:
@@ -58,26 +58,25 @@ def daily_job():
     if not check_availability():
         send_notification("Daily Update", "The script ran successfully today, but no parking spots became available.")
 
-def run_scheduled_job():
-    logger.info("Running scheduled availability check")
-    check_availability()
-
 def main():
     if not URL or not WEBHOOK_URL:
         logger.error("PARKING_URL or WEBHOOK_URL environment variables are not set")
         sys.exit(1)
 
-    schedule.every().day.at("07:00").do(run_scheduled_job)
-    schedule.every().day.at("11:59").do(run_scheduled_job)
-    schedule.every().day.at("17:00").do(run_scheduled_job)
-    schedule.every().day.at("23:00").do(run_scheduled_job)
-    schedule.every().day.at("23:30").do(daily_job)
+    logger.info(f"Script started. Running checks every {CHECK_INTERVAL} seconds.")
+    last_daily_update = datetime.now()
 
-    logger.info("Script started. Running checks at scheduled times.")
     while True:
         try:
-            schedule.run_pending()
-            time.sleep(60)  # Sleep for 1 minute between checks
+            check_availability()
+            
+            # Check if it's time for the daily update (after 11:30 PM)
+            now = datetime.now()
+            if now.hour == 23 and now.minute >= 30 and (now - last_daily_update).days >= 1:
+                daily_job()
+                last_daily_update = now
+
+            time.sleep(CHECK_INTERVAL)
         except Exception as e:
             logger.error(f"Error in main loop: {e}")
             time.sleep(300)  # Sleep for 5 minutes if there's an error
